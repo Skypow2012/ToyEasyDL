@@ -1,0 +1,26 @@
+{
+  "name": "toy_easy_dl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "ToyEasyDLBg.js",
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Skypow2012/ToyEasyDL.git"
+  },
+  "keywords": [
+    "easydl"
+  ],
+  "author": "maxmon",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Skypow2012/ToyEasyDL/issues"
+  },
+  "homepage": "https://github.com/Skypow2012/ToyEasyDL#readme"
+}
