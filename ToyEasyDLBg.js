@@ -85,7 +85,11 @@ app.post('/class', (req, res) => {
   if (!className) {
     return back(res, 400);
   }
-  let tarDirPath = path.join(dirPath, 'images', className);
+  let imagesDirPath = path.join(dirPath, 'images');
+  if (!fs.existsSync(imagesDirPath)) {
+    fs.mkdirSync(imagesDirPath);
+  }
+  let tarDirPath = path.join(imagesDirPath, className);
   // 文件夹是否存在校验
   if (!fs.existsSync(tarDirPath)) {
     fs.mkdirSync(tarDirPath);
