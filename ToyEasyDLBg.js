@@ -34,6 +34,9 @@ function back(res, msg) {
       case 406:
         body.errmsg = '存在该模型名称，请重新命名';
         break;
+      case 407:
+        body.errmsg = '同名模型正在训练中，请稍后';
+        break;
       default:
     }
   } else if (msg) {
@@ -57,15 +60,15 @@ app.del('/image', (req, res) => {
 
 app.get('/image', (req, res) => {
   let dir = fs.readdirSync('./images');
-  let resBody = [];
+  let resInfo = [];
   for (let i = 0; i < dir.length; i++) {
     let tar = {};
     let className = dir[i];
     tar.className = className;
     tar.images = fs.readdirSync('./images/' + className);
-    resBody.push(tar);
+    resInfo.push(tar);
   }
-  back(res, resBody);
+  back(res, resInfo);
 })
 
 app.post('/image', (req, res) => {
@@ -137,19 +140,24 @@ app.post('/train', async (req, res) => {
   if (!modelName) return back(res, 400);
   let classVecs = {};
   let modelFileName = modelName + '.json';
+  let waitFileName = modelName + '.wait.json';
   if (fs.existsSync(path.join(dirPath, 'models', modelFileName))) return back(res, 406)
+  if (fs.existsSync(path.join(dirPath, 'models', waitFileName))) return back(res, 407)
   // 计算工作量
   let cnt = 0;
   for (className of classNames) {
     let imgs = fs.readdirSync(path.join(dirPath, 'images', className));
     cnt += imgs.length;
   }
-  back(res, {
+  let resInfo = {
     modelName,
+    startTs: Date.now(),
     time: cnt*6,
     image: cnt,
-    class: classNames.length
-  });
+    classes: classNames
+  }
+  fs.writeFileSync(path.join(dirPath, 'models', waitFileName), JSON.stringify(resInfo));
+  back(res, resInfo);
   // 后台进入训练
   for (className of classNames) {
     let imgs = fs.readdirSync(path.join(dirPath, 'images', className));
@@ -161,6 +169,30 @@ app.post('/train', async (req, res) => {
     classVecs[className] = imgVecs;
   }
   fs.writeFileSync(path.join('./models/', modelFileName), JSON.stringify(classVecs));
+  fs.unlinkSync(path.join('./models/', waitFileName));
+})
+
+app.get('/model', (req, res) => {
+  let models = fs.readdirSync(modelsPath);
+  let resInfo = [];
+  for (let i = 0; i < models.length; i++) {
+    let modelName = models[i];
+    if (modelName.indexOf('.wait') > -1) {
+      let info = JSON.parse(fs.readFileSync(path.join(modelsPath, modelName)));
+      resInfo.push({
+        name: modelName.replace('.wait.json', ''),
+        eTs: info.startTs + info.time * 1000,
+        classes: info.classes
+      })
+    } else {
+      let info = JSON.parse(fs.readFileSync(path.join(modelsPath, modelName)));
+      resInfo.push({
+        name: modelName.replace('.json', ''),
+        classes: Object.keys(info)
+      })
+    }
+  }
+  back(res, resInfo);
 })
 
 app.post('/infer', async (req, res) => {
@@ -169,7 +201,7 @@ app.post('/infer', async (req, res) => {
   if (!modelName) return back(res, 400); // 没发送模型名称
   if (!base64) return back(res, 400); // 没发送待推导图片
   let modelFileName = modelName + '.json';
-  let modelFilePath = path.join(dirPath, 'models', modelFileName);
+  let modelFilePath = path.join(modelsPath, modelFileName);
   let isModelExist = fs.existsSync(modelFilePath);
   if (!isModelExist) return back(res, 404); // 不存在模型
   let model = JSON.parse(fs.readFileSync(modelFilePath));
@@ -211,9 +243,11 @@ app.post('/infer', async (req, res) => {
   console.log(finalRankScore);
   let sumRankScore = 0;
   for (let className in model) {
-    finalRankScore[className] /= Object.keys(model[className]).length;
+    finalRankScore[className] = finalRankScore[className] || 0;
+    finalRankScore[className] /= (Object.keys(model[className]).length + 1);
     sumRankScore += finalRankScore[className];
   }
+  console.log(sumRankScore)
   for (let className in model) {
     finalRankScore[className] /= sumRankScore;
   }

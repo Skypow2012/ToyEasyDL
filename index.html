@@ -66,8 +66,14 @@
     .class-tips,
     .input-form>p>.tips,
     .input-form>p>input,
-    .input-form>p>button {
+    .input-form>p>button,
+    .default-tips {
       font-size: 1rem;
+    }
+    .default-tips {
+      color: #757575;
+      line-height: 1rem;
+      vertical-align: middle;
     }
     .class-tips {
       display: inline-block;
@@ -159,6 +165,53 @@
     .operate-tips.hide-mode>p {
       display: none;
     }
+
+    /* 训练部分 */
+    .class-select-box {
+      margin-bottom: 5px;
+    }
+    .class-select-span {
+      font-size: 1rem;
+      padding: 0 5px;
+      display: inline-block;
+      margin: 0 5px;
+      padding: 0 5px;
+      font-size: 1rem;
+      line-height: 28px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      vertical-align: middle;
+      user-select: none;
+      cursor: pointer;
+    }
+    #class-input {
+      font-size: 0;
+      width: calc(100% - 25px);
+      margin-bottom: 5px;
+    }
+    #class-input>.class-select-span {
+      line-height: 22px;
+    }
+    .model-card-box {
+      margin-top: 10px;
+    }
+    .model-card {
+      display: inline-block;
+      border: 2px solid #000;
+      border-radius: 4px;
+      margin: 5px 5px 0 5px;
+      padding: 5px;
+      height: 36px;
+      box-sizing: border-box;
+      width: calc(50% - 10px);
+    }
+    .model-card-name {
+      font-size: 1rem;
+    }
+    .clock {
+      float: right;
+      font-size: 1rem;
+    }
   </style>
   <script>
     const toast = {
@@ -176,6 +229,10 @@
       mains.forEach((mainDom) => {
         if (mainDom.id !== naviId) mainDom.style.display = 'none';
         else mainDom.style.display = 'block';
+        if (naviId === 'train') {
+          getClasses();
+          flushModels();
+        }
       })
       var naviBtns = document.querySelectorAll('.navi-btn');
       naviBtns.forEach((naviBtn) => {
@@ -361,6 +418,108 @@
       tar.isShow = tar.isShow ? false : true;
       tar.classList = ['operate-tips',tar.isShow?'':'hide-mode'].join(' ')
     }
+
+    // 训练部分
+    window.selectClasses = [];
+    function getClasses() {
+      let classSelectBox = document.querySelector('.class-select-box');
+      get('/class', (resBody)=>{
+        if (resBody.errcode === 0) {
+          let classes = resBody.info;
+          classSelectBox.innerHTML = '';
+          for (let className of classes) {
+            let classNameDom = document.createElement('span');
+            classNameDom.innerText = className;
+            classNameDom.className = 'class-select-span';
+            classNameDom.onclick = ()=>{
+              console.log('onclick')
+              if (window.selectClasses.indexOf(className) === -1) {
+                window.selectClasses.push(className);
+                showSelectClasses(window.selectClasses);
+              }
+            };
+            classSelectBox.appendChild(classNameDom);
+          }
+        }
+      })
+    }
+    function showSelectClasses(selectClasses) {
+      let classInput = document.querySelector('#class-input');
+      window.classInputTips = window.classInputTips || document.querySelector('#class-input-tips');
+      classInput.innerHTML = '';
+      if (selectClasses.length) {
+        for (let i = 0; i < selectClasses.length; i++) {
+          let classNameDom = document.createElement('span');
+          let className = selectClasses[i];
+          classNameDom.innerText = className;
+          classNameDom.onclick = ()=>{
+            let idx = window.selectClasses.indexOf(className);
+            console.log(idx);
+            if (idx !== -1) {
+              window.selectClasses.splice(idx, 1);
+              showSelectClasses(window.selectClasses);
+            }
+          }
+          classNameDom.className = 'class-select-span';
+          classInput.appendChild(classNameDom);
+        }
+      } else {
+        classInput.appendChild(window.classInputTips);
+      }
+    }
+    function flushModels() {
+      get('/model', (resBody)=>{
+        
+        let modelCardBox = document.querySelector('.model-card-box');
+        if (resBody.errcode === 0) {
+          modelCardBox.innerHTML = '';
+          let models = resBody.info;
+          for (let i = 0; i < models.length; i++) {
+            let model = models[i];
+            let modelCard = document.createElement('div');
+            modelCard.className = 'model-card';
+            let modelCardName = document.createElement('span');
+            modelCardName.className = 'model-card-name';
+            modelCardName.innerText = model.name;
+            modelCard.appendChild(modelCardName);
+            modelCardBox.appendChild(modelCard);
+            if (model.eTs) {
+              let clock = document.createElement('span');
+              clock.className = 'clock';
+              clock.innerText = getLeftTime(model.eTs);
+              let inter = setInterval(()=>{
+                clock.innerText = getLeftTime(model.eTs);
+                if (getLeftTime(model.eTs) === '00:00') {
+                  clearInterval(inter);
+                  flushModels();
+                }
+              }, 1000)
+              modelCard.appendChild(clock);
+            }
+          }
+        }
+      })
+    }
+    function getLeftTime(eTs) {
+      let nowTs = Date.now();
+      let ts = (eTs - nowTs)/1000|0;
+      if (ts < 0) ts = 0;
+      let min = ('00' + ((ts / 60) |0)).substr(-2);
+      let sec = ('00' + (ts % 60)).substr(-2);
+      return min + ':' + sec;
+    }
+    function train() {
+      let modelInputDom = document.getElementById('model-name-input');
+      let modelName = modelInputDom.value;
+      if (!modelName) return toast.error('请随便输入一个自定义的模型名称')
+      post('/train?modelName=' + modelName, {
+        classNames: window.selectClasses
+      }, (resBody)=>{
+        flushModels();
+        modelInputDom.value = '';
+        console.log(resBody);
+      })
+    }
   </script>
 </head>
 
@@ -371,6 +530,7 @@
     <span class="navi-btn" onclick="selectNaviBtn('infer', event)">推导</span>
   </header>
   <div class="main" id="input">
+    <!-- input -->
     <input id="img-input" type="file" style="display: none" multiple="multiple"/>
     <div class="input-form">
       <input class="input" id="class-name" onkeydown="enter(event)" placeholder="输入分类" ></input>
@@ -385,10 +545,19 @@
     </div>
   </div>
   <div class="main" id="train" style="display:none">
-    train
+    <!-- train -->
+    <div class="input-form">
+      <div class="class-select-box"></div>
+      <div class="input" id="class-input">
+        <span class="default-tips" id="class-input-tips">从上方选择类别</span>
+      </div>
+      <input class="input" id="model-name-input" placeholder="输入自定义模型名称"/>
+      <span class="btn" onclick="train()">开始训练</span>
+    </div>
+    <div class="model-card-box"></div>
   </div>
   <div class="main" id="infer" style="display:none">
-    infer
+    <!-- infer -->
   </div>
 </body>
 
