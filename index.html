@@ -468,6 +468,7 @@
       }
     }
     window.inters = [];
+    window.flushDic = {};
     function flushModels() {
       get('/model', (resBody)=>{
         
@@ -492,7 +493,11 @@
                 clock.innerText = getLeftTime(model.eTs);
                 if (getLeftTime(model.eTs) === '00:00') {
                   clearInterval(inter);
-                  flushModels();
+                  let isFlushed = window.flushDic[model.eTs];
+                  window.flushDic[model.eTs] = true;
+                  if (!isFlushed) {
+                    flushModels();
+                  }
                 }
               }, 1000)
               window.inters.push(inter);
