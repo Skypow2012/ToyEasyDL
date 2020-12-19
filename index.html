@@ -494,11 +494,18 @@
                   flushModels();
                 }
               }, 1000)
+              window.inters.push(inter);
               modelCard.appendChild(clock);
             }
           }
         }
       })
+    }
+    function clearAllInterval() {
+      for (let i = 0; i < window.inters.length; i++) {
+        clearInterval(window.inters[i])
+      }
+      window.inters = [];
     }
     function getLeftTime(eTs) {
       let nowTs = Date.now();
