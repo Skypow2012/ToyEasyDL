@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ToyEasyDL</title>
+  <style>
+    * {
+      font-size: 0;
+      margin: 0;
+    }
+
+    html {
+      font-size: 16px;
+    }
+
+    header {
+      height: 8vh;
+      background-color: #000000;
+      user-select: none;
+    }
+
+    header>.navi-btn {
+      color: #ffffff;
+      font-size: 1.2rem;
+      line-height: 8vh;
+      margin: 1rem;
+      vertical-align: middle;
+      font-weight: 600;
+      opacity: .6;
+    }
+
+    header>.navi-btn.select {
+      opacity: 1;
+      border-bottom: 4px solid white;
+    }
+
+    header>.navi-btn:hover {
+      opacity: 1;
+      cursor: pointer;
+    }
+    html {
+      text-align: center;
+      background-color: #cccccc;
+    }
+
+    body {
+      margin: auto;
+      text-align: left;
+      max-width: 900px;
+      overflow: hidden;
+      background-color: #ffffff;
+    }
+
+    .main {
+      font-size: 1rem;
+      padding: 10px;
+    }
+
+    .class-tips,
+    .input-form>p>.tips,
+    .input-form>p>input,
+    .input-form>p>button {
+      font-size: 1rem;
+    }
+    .class-tips {
+      display: inline-block;
+      height: 32px;
+      line-height: 32px;
+      margin-top: 5px;
+    }
+
+    .operate-tips,
+    .class-tips,
+    .tips {
+      color: #333333;
+    }
+
+    .add-img,
+    .class-img {
+      display: inline-block;
+      position: relative;
+      width: 32px;
+      height: 32px;
+      background-size: 100% 100%;
+    }
+    .add-img {
+      opacity: 1;
+      background-image: url('/img/add.svg');
+    }
+    .add-img:hover {
+      opacity: 1;
+      cursor: pointer;
+    }
+
+    .class-img:hover::after {
+      font-size: 14px;
+      display: inline-block;
+      content: '';
+      width: 32px;
+      height: 32px;
+      background-image: url('/img/del.svg');
+      cursor: pointer;
+      opacity: 1;
+    }
+    .input,
+    .btn {
+      display: inline-block;
+      margin: 0 5px;
+      padding: 0 5px;
+      font-size: 1rem;
+      line-height: 28px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      vertical-align: middle;
+    }
+    .btn {
+      user-select: none;
+      color: #ffffff;
+      background-color: #000000;
+      cursor: pointer;
+    }
+    .input-form {
+      width: 100%;
+    }
+    .input-form>.input {
+      width: calc(100% - 4rem - 50px);
+    }
+    .input-form>.btn {
+      float: right;
+    }
+    .operate-tips {
+      position: fixed;
+      bottom: 5px;
+      left: 5px;
+      min-width: 33px;
+      min-height: 33px;
+      box-sizing: border-box;
+      border-radius: 20px;
+      border-bottom-left-radius: 0px;
+      padding: 10px;
+      background-color: snow;
+      box-shadow: inset -1px -1px 2px #000;
+    }
+    .operate-tips.hide-mode {
+      background-image: url('./img/ques.svg');
+      background-size: 32px 32px;
+    }
+    .operate-tips>p {
+      font-size: 0.5rem;
+      color: #333333;
+    }
+    .operate-tips.hide-mode>p {
+      display: none;
+    }
+  </style>
+  <script>
+    const toast = {
+      error(msg) {
+        alert(msg);
+      }
+    }
+    // const xhrPath = '/ToyEasyDLBg';
+    const xhrPath = '';
+    /**
+     * 选择导航栏
+     */
+    function selectNaviBtn(naviId, ev) {
+      var mains = document.querySelectorAll('.main');
+      mains.forEach((mainDom) => {
+        if (mainDom.id !== naviId) mainDom.style.display = 'none';
+        else mainDom.style.display = 'block';
+      })
+      var naviBtns = document.querySelectorAll('.navi-btn');
+      naviBtns.forEach((naviBtn) => {
+        naviBtn.classList.remove('select')
+      })
+      ev.target.classList.add('select')
+    }
+    /**
+     * 选择图片
+     */
+    function selectImg(className="") {
+      window.className = className;
+      document.getElementById('img-input').click()
+    }
+
+    function delImg(className, imageId) {
+      del('/image?className=' + className + '&imageId=' + imageId, function (resBody) {
+        flushImageList()
+      });
+    }
+    window.onload = function () {
+      var file = document.getElementById("img-input");
+
+      function blobToDataURL(blob, cb) {
+        var reader = new FileReader();
+        reader.onload = function (evt) {
+          var base64 = evt.target.result
+          cb(base64)
+        };
+        reader.readAsDataURL(blob);
+      }
+
+      function changeImg(cb) {
+        var imgs = file.files;
+        let num = imgs.length;
+        let urls = [];
+        let cnt = 0;
+        for (let i = 0; i < imgs.length; i++) {
+          let img = imgs[i];
+          var url = URL.createObjectURL(img);
+          var base64 = blobToDataURL(img, function (base64Url) {
+            cnt++;
+            urls[i] = base64Url;
+            if (cnt === num) {
+              cb(urls);
+            }
+          })
+        }
+      }
+      file.onchange = function () {
+        changeImg((base64Urls) => {
+          let className = window.className;
+          sendImage(className, base64Urls);
+          flushImageList();
+        })
+      }
+
+      function sendImage(className, base64Urls) {
+        if (!className) {
+          alert('请先输入类名');
+        }
+        post('/image?className=' + className, {
+          base64: base64Urls,
+        }, (resBody) => {
+          console.log(resBody);
+        })
+      }
+    }
+
+    function flushImageList() {
+      get('/image', function (resBody) {
+        if (resBody.errcode === 0) {
+          let info = resBody.info;
+          let classArea = document.getElementById('class-area');
+          classArea.innerHTML = '';
+          for (let tar of info) {
+            let className = tar.className;
+            let div = document.createElement('div');
+            div.className = 'class-box';
+            let span = document.createElement('span');
+            span.className = 'class-tips';
+            span.innerText = className;
+            span.onclick = function() {
+              delClass(className)
+            }
+            div.appendChild(span);
+            let p = document.createElement('p');
+            p.className = 'class-p';
+            div.appendChild(p);
+            let images = tar.images;
+            for (let imageName of images) {
+              let img = document.createElement('div');
+              img.className = "class-img"
+              img.style.backgroundImage = `url(/images/${className}/${imageName})`;
+              img.onclick = function() {
+                delImg(className, imageName)
+              }
+              p.appendChild(img);
+            }
+            let addBtn = document.createElement('div');
+            addBtn.className = "add-img";
+            addBtn.onclick = function() {
+              selectImg(className);
+            }
+            p.appendChild(addBtn);
+            classArea.appendChild(div);
+          }
+        }
+      })
+    }
+    flushImageList()
+
+    function addClass() {
+      var className = document.getElementById('class-name').value;
+      if (!className) return toast.error('请先输入类名')
+      post('/class?className=' + className, {}, function(resBody) {
+        document.getElementById('class-name').value = '';
+        flushImageList()
+      })
+    }
+    function delClass(className) {
+      del('/class?className=' + className, function(resBody) {
+        document.getElementById('class-name').value = '';
+        flushImageList()
+      })
+    }
+
+    function del(url, cb) {
+      let config = {};
+      config.url = url;
+      config.method = 'DELETE';
+      request(config, cb);
+    }
+
+    function get(url, cb) {
+      let config = {};
+      config.url = url;
+      config.method = 'GET';
+      request(config, cb);
+    }
+
+    function post(url, data, cb) {
+      let config = {};
+      config.url = url;
+      config.method = 'POST';
+      config.data = data;
+      request(config, cb);
+    }
+
+    function request(config, cb) {
+      var xhr;
+      if (window.XMLHttpRequest) {
+        xhr = new XMLHttpRequest();
+      } else if (window.ActiveXObject) {
+        xhr = new ActiveXObject();
+      }
+      xhr.open(config.method, xhrPath + config.url);
+      xhr.setRequestHeader('content-type', 'application/json');
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+          let resBody = JSON.parse(xhr.responseText)
+          if (resBody.errcode !== 0) {
+            toast.error(resBody.errmsg);
+          }
+          cb(resBody);
+        }
+      }
+      xhr.send(JSON.stringify(config.data))
+    }
+    function enter(event) {
+      if (event.key === 'Enter') {
+        event.target.blur();
+        addClass()
+      } 
+    }
+    function hide(event) {
+      let tar;
+      if (event.target.onclick) {
+        tar = event.target;
+      } else if (event.target.parentElement.onclick) {
+        tar = event.target.parentElement;
+      }
+      tar.isShow = tar.isShow ? false : true;
+      tar.classList = ['operate-tips',tar.isShow?'':'hide-mode'].join(' ')
+    }
+  </script>
+</head>
+
+<body>
+  <header>
+    <span class="navi-btn select" onclick="selectNaviBtn('input', event)">录入</span>
+    <span class="navi-btn" onclick="selectNaviBtn('train', event)">训练</span>
+    <span class="navi-btn" onclick="selectNaviBtn('infer', event)">推导</span>
+  </header>
+  <div class="main" id="input">
+    <input id="img-input" type="file" style="display: none" multiple="multiple"/>
+    <div class="input-form">
+      <input class="input" id="class-name" onkeydown="enter(event)" placeholder="输入分类" ></input>
+      <span class="btn" onclick="addClass()">添加分类</span>
+    </div>
+    <div id="class-area"></div>
+    <div class="operate-tips hide-mode" onclick="hide(event)">
+      <p>1. 首先添加分类；</p>
+      <p>2. 点击绿色加号增加图片；</p>
+      <p>3. 点击小图片删除图片；</p>
+      <p>4. 点击类名删除类；</p>
+    </div>
+  </div>
+  <div class="main" id="train" style="display:none">
+    train
+  </div>
+  <div class="main" id="infer" style="display:none">
+    infer
+  </div>
+</body>
+
+</html>
