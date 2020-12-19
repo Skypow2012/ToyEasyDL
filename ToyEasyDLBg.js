@@ -14,6 +14,35 @@ if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath);
 if (!fs.existsSync(modelsPath)) fs.mkdirSync(modelsPath);
 if (!fs.existsSync(inferPath)) fs.mkdirSync(inferPath);
 
+function getTar(vec) {
+  let max = 0;
+  let maxIdx = 0;
+  for (let i = 0; i < vec.length;i++) {
+    if (vec[i] > max) {
+      max = vec[i];
+      maxIdx =i ;
+    }
+  }
+  classes = [
+    'apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle',
+    'bicycle', 'bottle', 'bowl', 'boy', 'bridge', 'bus', 'butterfly', 'camel',
+    'can', 'castle', 'caterpillar', 'cattle', 'chair', 'chimpanzee', 'clock',
+    'cloud', 'cockroach', 'couch', 'crab', 'crocodile', 'cup', 'dinosaur',
+    'dolphin', 'elephant', 'flatfish', 'forest', 'fox', 'girl', 'hamster',
+    'house', 'kangaroo', 'keyboard', 'lamp', 'lawn_mower', 'leopard', 'lion',
+    'lizard', 'lobster', 'man', 'maple_tree', 'motorcycle', 'mountain', 'mouse',
+    'mushroom', 'oak_tree', 'orange', 'orchid', 'otter', 'palm_tree', 'pear',
+    'pickup_truck', 'pine_tree', 'plain', 'plate', 'poppy', 'porcupine',
+    'possum', 'rabbit', 'raccoon', 'ray', 'road', 'rocket', 'rose',
+    'sea', 'seal', 'shark', 'shrew', 'skunk', 'skyscraper', 'snail', 'snake',
+    'spider', 'squirrel', 'streetcar', 'sunflower', 'sweet_pepper', 'table',
+    'tank', 'telephone', 'television', 'tiger', 'tractor', 'train', 'trout',
+    'tulip', 'turtle', 'wardrobe', 'whale', 'willow_tree', 'wolf', 'woman',
+    'worm'
+  ]
+  return classes[maxIdx];
+}
+
 function back(res, msg) {
   let body = {
     errcode: 0,
@@ -216,9 +245,11 @@ app.post('/infer', async (req, res) => {
     let imgVecs = model[className];
     for (let imgName in imgVecs) {
       let imgVec = imgVecs[imgName];
+      console.log(className, getTar(imgVec));
       let score = calScore(inferVec, imgVec);
       scores.push(score);
       mixList.push({
+        imgName,
         className,
         score
       })
