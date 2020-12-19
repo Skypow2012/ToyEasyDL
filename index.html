@@ -264,7 +264,7 @@
             for (let imageName of images) {
               let img = document.createElement('div');
               img.className = "class-img"
-              img.style.backgroundImage = `url(/images/${className}/${imageName})`;
+              img.style.backgroundImage = `url(./images/${className}/${imageName})`;
               img.onclick = function() {
                 delImg(className, imageName)
               }
