@@ -1,9 +1,18 @@
 const express = require('express');
+const { getVec } = require('./callPy.js');
 const fs = require('fs');
 const path = require('path');
+const { dir } = require('console');
 const app = new express();
 const port = 8000;
 const dirPath = './';
+const imagesPath = path.join(dirPath, 'images');
+const modelsPath = path.join(dirPath, 'models');
+const inferPath = path.join(dirPath, 'infer');
+
+if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath);
+if (!fs.existsSync(modelsPath)) fs.mkdirSync(modelsPath);
+if (!fs.existsSync(inferPath)) fs.mkdirSync(inferPath);
 
 function back(res, msg) {
   let body = {
@@ -21,6 +30,9 @@ function back(res, msg) {
         break;
       case 405:
         body.errmsg = '请先清除类目下的图片';
+        break;
+      case 406:
+        body.errmsg = '存在该模型名称，请重新命名';
         break;
       default:
     }
@@ -99,9 +111,7 @@ app.post('/class', (req, res) => {
 app.del('/class', (req, res) => {
   let { className } = req.query;
   // 参数校验
-  if (!className) {
-    return back(res, 400);
-  }
+  if (!className) return back(res, 400);
   let tarDirPath = path.join(dirPath, 'images', className);
   // 文件夹是否存在校验
   if (fs.existsSync(tarDirPath)) {
@@ -119,6 +129,110 @@ app.get('/class', (req, res) => {
   let dir = fs.readdirSync('./images');
   back(res, dir);
 })
+
+app.post('/train', async (req, res) => {
+  let {classNames} = req.body;
+  let {modelName} = req.query;
+  if (!classNames) return back(res, 400);
+  if (!modelName) return back(res, 400);
+  let classVecs = {};
+  let modelFileName = modelName + '.json';
+  if (fs.existsSync(path.join(dirPath, 'models', modelFileName))) return back(res, 406)
+  // 计算工作量
+  let cnt = 0;
+  for (className of classNames) {
+    let imgs = fs.readdirSync(path.join(dirPath, 'images', className));
+    cnt += imgs.length;
+  }
+  back(res, {
+    modelName,
+    time: cnt*6,
+    image: cnt,
+    class: classNames.length
+  });
+  // 后台进入训练
+  for (className of classNames) {
+    let imgs = fs.readdirSync(path.join(dirPath, 'images', className));
+    let imgVecs = {};
+    for (let imgName of imgs) {
+      let tarList = await getVec(`images/${className}/${imgName}`);
+      imgVecs[imgName] = tarList;
+    }
+    classVecs[className] = imgVecs;
+  }
+  fs.writeFileSync(path.join('./models/', modelFileName), JSON.stringify(classVecs));
+})
+
+app.post('/infer', async (req, res) => {
+  let { modelName } = req.query;
+  let { base64 } = req.body;
+  if (!modelName) return back(res, 400); // 没发送模型名称
+  if (!base64) return back(res, 400); // 没发送待推导图片
+  let modelFileName = modelName + '.json';
+  let modelFilePath = path.join(dirPath, 'models', modelFileName);
+  let isModelExist = fs.existsSync(modelFilePath);
+  if (!isModelExist) return back(res, 404); // 不存在模型
+  let model = JSON.parse(fs.readFileSync(modelFilePath));
+  let inferFileName = Date.now() + '.jpg';
+  let inferFilePath = path.join(inferPath, inferFileName);
+  fs.writeFileSync(inferFilePath, Buffer.from(base64.replace(/^.*base64/,''), 'base64'));
+  let inferVec = await getVec(`infer/${inferFileName}`);
+  let modelInferDic = {};
+  let mixList = [];
+  for (let className in model) {
+    let scores = [];
+    let imgVecs = model[className];
+    for (let imgName in imgVecs) {
+      let imgVec = imgVecs[imgName];
+      let score = calScore(inferVec, imgVec);
+      scores.push(score);
+      mixList.push({
+        className,
+        score
+      })
+    }
+    modelInferDic[className] = scores;
+  }
+  let maxScore = 0;
+  mixList.sort((a,b)=>{
+    if (a.score > maxScore) maxScore = a.score;
+    return a.score - b.score;
+  })
+  console.log(mixList);
+  // 这里是score从底到高，排序，所以这里的rankScore越高越好
+  let finalRankScore = {};
+  for (let i = 0; i < mixList.length; i++) {
+    finalRankScore[mixList[i].className] = finalRankScore[mixList[i].className] || 0;
+    finalRankScore[mixList[i].className] += mixList.length - i + mixList.length * (maxScore-mixList[i].score);
+    if (mixList[i].score < 0.1) {
+      finalRankScore[mixList[i].className] += mixList.length * 5;
+    }
+  }
+  console.log(finalRankScore);
+  let sumRankScore = 0;
+  for (let className in model) {
+    finalRankScore[className] /= Object.keys(model[className]).length;
+    sumRankScore += finalRankScore[className];
+  }
+  for (let className in model) {
+    finalRankScore[className] /= sumRankScore;
+  }
+
+  back(res, finalRankScore);
+})
+
+/**
+ * 计算分数，这里的数值越小代表越接近，所以越小越好
+ * @param {*} tarVec 
+ * @param {*} modelVec 
+ */
+function calScore(tarVec, modelVec) {
+  let score = 0;
+  for (let i = 0; i < tarVec.length; i++) {
+    score += (tarVec[i] - modelVec[i]) ** 2;
+  }
+  return score;
+}
 
 app.listen(port)
 

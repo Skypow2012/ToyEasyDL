@@ -1,2 +1,5 @@
 images
+models
+infer
+py/__pycache__
 node_modules
