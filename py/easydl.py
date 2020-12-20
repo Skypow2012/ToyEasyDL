@@ -30,7 +30,7 @@ img_cv = cv2.resize(img_cv, dim)
 tensor_cv = torch.from_numpy(img_cv)
 plt.imshow(img_cv)
 
-checkpoint = torch.load(sys.path[0] + '/model/net_025.pth')
+checkpoint = torch.load(sys.path[0] + '/model/net_025.pth', map_location=device)
 net.load_state_dict(checkpoint)
 
 with torch.no_grad():
