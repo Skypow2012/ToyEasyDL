@@ -76,9 +76,10 @@ function back(res, msg) {
 app.use(express.static('./'))
 app.use(express.json({limit: '20mb'}));
 
-app.del('/image', (req, res) => {
+app.delete('/image', (req, res) => {
   let {className, imageId} = req.query;
-  let imgPath = path.join(dirPath, 'images', className, imageId);
+  let encodeClassName = encodeURIComponent(className);
+  let imgPath = path.join(dirPath, 'images', encodeClassName, imageId);
   if (!fs.existsSync(imgPath)) {
     back(res, 404);
   } else {
@@ -92,9 +93,9 @@ app.get('/image', (req, res) => {
   let resInfo = [];
   for (let i = 0; i < dir.length; i++) {
     let tar = {};
-    let className = dir[i];
-    tar.className = className;
-    tar.images = fs.readdirSync('./images/' + className);
+    let encodeClassName = dir[i];
+    tar.className = decodeURIComponent(encodeClassName);
+    tar.images = fs.readdirSync('./images/' + encodeClassName);
     resInfo.push(tar);
   }
   back(res, resInfo);
@@ -106,7 +107,8 @@ app.post('/image', (req, res) => {
   if (!className) {
     return back(res, 400);
   }
-  let tarDirPath = path.join(dirPath, 'images', className);
+  let encodeClassName = encodeURIComponent(className);
+  let tarDirPath = path.join(dirPath, 'images', encodeClassName);
   // 文件夹是否存在校验
   if (!fs.existsSync(tarDirPath)) {
     fs.mkdirSync(tarDirPath);
@@ -122,29 +124,28 @@ app.post('/image', (req, res) => {
   }
   back(res)
 })
-
 app.post('/class', (req, res) => {
   let { className } = req.query;
   // 参数校验
-  if (!className) {
-    return back(res, 400);
-  }
+  if (!className) return back(res, 400);
+  let encodeClassName = encodeURIComponent(className);
   let imagesDirPath = path.join(dirPath, 'images');
   if (!fs.existsSync(imagesDirPath)) {
     fs.mkdirSync(imagesDirPath);
   }
-  let tarDirPath = path.join(imagesDirPath, className);
+  let tarDirPath = path.join(imagesDirPath, encodeClassName);
   // 文件夹是否存在校验
   if (!fs.existsSync(tarDirPath)) {
     fs.mkdirSync(tarDirPath);
   }
   back(res)
 })
-app.del('/class', (req, res) => {
+app.delete('/class', (req, res) => {
   let { className } = req.query;
   // 参数校验
   if (!className) return back(res, 400);
-  let tarDirPath = path.join(dirPath, 'images', className);
+  let encodeClassName = encodeURIComponent(className);
+  let tarDirPath = path.join(dirPath, 'images', encodeClassName);
   // 文件夹是否存在校验
   if (fs.existsSync(tarDirPath)) {
     if (fs.readdirSync(tarDirPath).length) {
@@ -158,8 +159,11 @@ app.del('/class', (req, res) => {
   }
 })
 app.get('/class', (req, res) => {
-  let dir = fs.readdirSync('./images');
-  back(res, dir);
+  let dirs = fs.readdirSync('./images');
+  dirs = dirs.map((encodeClassName)=>{
+    return decodeURIComponent(encodeClassName);
+  })
+  back(res, dirs);
 })
 
 app.post('/train', async (req, res) => {
@@ -175,7 +179,8 @@ app.post('/train', async (req, res) => {
   // 计算工作量
   let cnt = 0;
   for (className of classNames) {
-    let imgs = fs.readdirSync(path.join(dirPath, 'images', className));
+    let encodeClassName = encodeURIComponent(className);
+    let imgs = fs.readdirSync(path.join(dirPath, 'images', encodeClassName));
     cnt += imgs.length;
   }
   let resInfo = {
@@ -189,10 +194,11 @@ app.post('/train', async (req, res) => {
   back(res, resInfo);
   // 后台进入训练
   for (className of classNames) {
-    let imgs = fs.readdirSync(path.join(dirPath, 'images', className));
+    let encodeClassName = encodeURIComponent(className);
+    let imgs = fs.readdirSync(path.join(dirPath, 'images', encodeClassName));
     let imgVecs = {};
     for (let imgName of imgs) {
-      let tarList = await getVec(`images/${className}/${imgName}`);
+      let tarList = await getVec(`images/${encodeClassName}/${imgName}`);
       imgVecs[imgName] = tarList;
     }
     classVecs[className] = imgVecs;
@@ -222,6 +228,16 @@ app.get('/model', (req, res) => {
     }
   }
   back(res, resInfo);
+})
+app.delete('/model', (req, res) => {
+  let { modelName } = req.query;
+  // 参数校验
+  if (!modelName) return back(res, 400);
+  let tarPath = path.join(modelsPath, modelName + '.json');
+  // 文件夹是否存在校验
+  if (!fs.existsSync(tarPath)) return back(res, 404);
+  fs.unlinkSync(tarPath);
+  back(res);
 })
 
 app.post('/infer', async (req, res) => {
