@@ -3,8 +3,8 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="//tekii.cn/js/vconsole.min.js"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+  <!-- <script src="//tekii.cn/js/vconsole.min.js"></script> -->
   <title>ToyEasyDL</title>
   <style>
     * {
@@ -390,7 +390,9 @@
       imgInput.onchange = function () {
         changeImg(imgInput, (base64Urls) => {
           let className = window.className;
-          sendImage(className, base64Urls);
+          smaller(base64Urls, (smallBase64Urls)=>{
+            sendImage(className, smallBase64Urls);
+          })
         })
       }
       inferInput.onchange = function() {
@@ -399,10 +401,32 @@
         document.getElementById('infer-btn').innerText = '推导中..'
         changeImg(inferInput, (base64Urls) => {
           let modelName = window.modelName;
-          inferImage(modelName, base64Urls);
+          smaller(base64Urls, (smallBase64Urls)=>{
+            inferImage(modelName, smallBase64Urls);
+          })
         })
       }
 
+      function smaller(base64Urls, cb) {
+        if (!base64Urls.length) return cb(base64Urls);
+        let cnt = 0;
+        for (let i = 0; i < base64Urls.length; i++) {
+          let canvas = document.createElement('canvas');
+          let ctx = canvas.getContext('2d');
+          let img = document.createElement('img');
+          img.src = base64Urls[i];
+          img.onload = function() {
+            canvas.width = 32;
+            canvas.height = 32;
+            ctx.drawImage(img, 0, 0, 32, 32);
+            // document.body.appendChild(canvas);
+            base64Urls[i] = canvas.toDataURL()
+            if (++cnt === base64Urls.length) {
+              cb(base64Urls);
+            }
+          }
+        }
+      }
       // 上传图片
       function sendImage(className, base64Urls) {
         if (!className) {
