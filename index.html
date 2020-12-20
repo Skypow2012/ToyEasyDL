@@ -307,6 +307,9 @@
     .infer-text>p>.infer-score {
       float: right;
     }
+    .infer-result {
+      border: 2px dashed #cccccc;
+    }
   </style>
   <script>
     const toast = {
@@ -380,6 +383,9 @@
             }
           })
         }
+        if (imgs.length === 0) {
+          cb([]);
+        }
       }
       imgInput.onchange = function () {
         changeImg(imgInput, (base64Urls) => {
@@ -388,6 +394,9 @@
         })
       }
       inferInput.onchange = function() {
+        window.isInInfer = true;
+        document.getElementById('infer-btn').style.opacity = 0.6;
+        document.getElementById('infer-btn').innerText = '推导中..'
         changeImg(inferInput, (base64Urls) => {
           let modelName = window.modelName;
           inferImage(modelName, base64Urls);
@@ -414,9 +423,12 @@
         post('/infer?modelName=' + modelName, {
           base64: base64Urls[0],
         }, (resBody) => {
+          window.isInInfer = false;
           console.log(resBody);
           if (resBody.errcode === 0) {
             showInferResult(base64Urls, resBody.info)
+            document.getElementById('infer-btn').style.opacity = 1;
+            document.getElementById('infer-btn').innerText = '开始推导';
           }
         })
       }
@@ -702,6 +714,10 @@
       if (!window.modelName) {
         return toast.info('请先选择模型');
       }
+      if (window.isInInfer) return;
+      document.getElementById("infer-input").value = '';
+      document.getElementById('infer-result').style.display = 'none';
+      document.getElementById('infer-result').style.display = 'none';
       document.getElementById('infer-input').click();
     }
 
@@ -776,18 +792,18 @@
     <div class="model-card no-select">
       <span class="model-card-name" id="selected-model-name">请先训练模型，然后选择模型</span>
     </div>
-    <span class="btn" onclick="infer()">开始推导</span>
-    <style>
-      .infer-result {
-        border: 2px dashed #cccccc;
-      }
-    </style>
+    <span class="btn" id="infer-btn" onclick="infer()">开始推导</span>
     <div class="infer-result" id="infer-result" style="display: none;">
       <img class="infer-img" id="infer-img" src="images/apple/1608410003630_1.jpg"></img>
       <div class="infer-text" id="infer-text">
         <p><span class="infer-class">小火龙</span><span class="infer-score">68.75%</span></p>
         <p><span class="infer-class">皮卡丘</span><span class="infer-score">31.25%</span></p>
       </div>
+    </div>
+    <div class="operate-tips hide-mode" onclick="hide(event)">
+      <p>1. 在训练页选择模型；</p>
+      <p>2. 点击开始推导选择图片；</p>
+      <p>3. 大约5秒出结果；</p>
     </div>
   </div>
 </body>
