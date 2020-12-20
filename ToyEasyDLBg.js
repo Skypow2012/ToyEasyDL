@@ -273,8 +273,11 @@ app.post('/infer', async (req, res) => {
     modelInferDic[className] = scores;
   }
   let maxScore = 0;
-  mixList.sort((a,b)=>{
+  for (let i = 0; i < mixList.length; i++) {
+    let a = mixList[i];
     if (a.score > maxScore) maxScore = a.score;
+  }
+  mixList.sort((a,b)=>{
     return a.score - b.score;
   })
   console.log(mixList);
