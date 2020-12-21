@@ -186,7 +186,7 @@ app.post('/train', async (req, res) => {
   let resInfo = {
     modelName,
     startTs: Date.now(),
-    time: cnt*6,
+    time: cnt*5,
     image: cnt,
     classes: classNames
   }
@@ -212,18 +212,24 @@ app.get('/model', (req, res) => {
   let resInfo = [];
   for (let i = 0; i < models.length; i++) {
     let modelName = models[i];
+    let modelPath = path.join(modelsPath, modelName);
+    let createdAt = new Date(fs.statSync(modelPath).ctime).getTime();
     if (modelName.indexOf('.wait') > -1) {
-      let info = JSON.parse(fs.readFileSync(path.join(modelsPath, modelName)));
+      let info = JSON.parse(fs.readFileSync(modelPath));
       resInfo.push({
         name: modelName.replace('.wait.json', ''),
         eTs: info.startTs + info.time * 1000,
-        classes: info.classes
+        status: (info.startTs + info.time * 1000) < Date.now() ? 'exception':'active',
+        percent: parseInt((Date.now() - createdAt) / info.time / 1000 * 100),
+        classes: info.classes,
+        createdAt,
       })
     } else {
-      let info = JSON.parse(fs.readFileSync(path.join(modelsPath, modelName)));
+      let info = JSON.parse(fs.readFileSync(modelPath));
       resInfo.push({
         name: modelName.replace('.json', ''),
-        classes: Object.keys(info)
+        classes: Object.keys(info),
+        createdAt,
       })
     }
   }
