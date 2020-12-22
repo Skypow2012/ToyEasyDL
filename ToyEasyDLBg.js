@@ -74,6 +74,9 @@ function back(res, msg, others) {
       case 4001:
         body.errmsg = '接口映射匹配失败';
         break;
+      case 4002:
+        body.errmsg = 'JSON格式有误，解析失败';
+        break;
       default:
     }
   } else if (msg) {
@@ -339,8 +342,24 @@ app.post('/paramInfer', async (req, res) => {
   const filePath = path.join(paramModelsPath, fileName);
   if (!fs.existsSync(filePath)) return back(res, 404);
   const item = JSON.parse(fs.readFileSync(filePath));
-  const tarJson = JSON.parse(item.dataFormat.replace('$text2', base64s[1]).replace('$text1', base64s[0]).replace('$text', base64s[0]));
-  let result = await axios.post(item.requestUrl, tarJson);
+  let tarJson = {};
+  try {
+    if (item.dataFormat) {
+      tarJson = JSON.parse(item.dataFormat.replace('$text2', base64s[1]).replace('$text1', base64s[0]).replace('$text', base64s[0]));
+    }
+  } catch(err) {
+    return back(res, 4002)
+  }
+  let headers = {}
+  if (item.requestMethod === 'FORM') headers['Content-Type'] = 'application/x-www-form-urlencoded';
+  if (item.requestMethod === 'JSON') headers['Content-Type'] = 'application/json';
+  if (item.requestMethod === 'XML') headers['Content-Type'] = 'text/xml';
+  let result = await axios({
+    url: item.requestUrl,
+    method: item.requestMethod === 'GET' ? 'GET': 'POST',
+    headers,
+    data: tarJson
+  });
   let { data } = result;
   let finded = findTar(data, item.dataMap);
   console.log(data, finded);
