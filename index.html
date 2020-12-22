@@ -687,7 +687,8 @@
             if (model.needDelBtn) {
               let delDom = document.createElement('span');
               delDom.className = 'del';
-              delDom.onclick = function() {
+              delDom.onclick = function(event) {
+                event.stopPropagation();
                 del('/model?modelName=' + model.name + (model.eTs ? '.wait' : ''), function(resBody){
                   flushModels();
                 })
