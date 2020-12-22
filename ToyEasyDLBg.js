@@ -3,16 +3,19 @@ const { getVec } = require('./callPy.js');
 const fs = require('fs');
 const path = require('path');
 const { dir } = require('console');
+const axios = require('axios');
 const app = new express();
 const port = 8000;
 const dirPath = './';
 const imagesPath = path.join(dirPath, 'images');
 const modelsPath = path.join(dirPath, 'models');
+const paramModelsPath = path.join(dirPath, 'param-models');
 const inferPath = path.join(dirPath, 'infer');
 const needTrainPath = path.join(dirPath, 'needTrain');
 
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath);
 if (!fs.existsSync(modelsPath)) fs.mkdirSync(modelsPath);
+if (!fs.existsSync(paramModelsPath)) fs.mkdirSync(paramModelsPath);
 if (!fs.existsSync(inferPath)) fs.mkdirSync(inferPath);
 if (!fs.existsSync(needTrainPath)) fs.mkdirSync(needTrainPath);
 
@@ -45,7 +48,7 @@ function getTar(vec) {
   return classes[maxIdx];
 }
 
-function back(res, msg) {
+function back(res, msg, others) {
   let body = {
     errcode: 0,
     errmsg: ''
@@ -68,10 +71,19 @@ function back(res, msg) {
       case 407:
         body.errmsg = '同名模型正在训练中，请稍后';
         break;
+      case 4001:
+        body.errmsg = '接口映射匹配失败';
+        break;
       default:
     }
   } else if (msg) {
     body.info = msg;
+  }
+  if (others) {
+    body = {
+      ...body,
+      ...others
+    }
   }
   res.json(body);
 }
@@ -262,7 +274,13 @@ app.get('/model', (req, res) => {
       })
     }
   }
-  back(res, resInfo);
+  let paramModels = [];
+  let paramModelsFiles = fs.readdirSync(paramModelsPath);
+  for (let i = 0; i < paramModelsFiles.length; i++) {
+    let fileName = paramModelsFiles[i];
+    paramModels.push(JSON.parse(fs.readFileSync(path.join(paramModelsPath, fileName))));
+  }
+  back(res, resInfo, {paramModels});
 })
 app.delete('/model', (req, res) => {
   let { modelName } = req.query;
@@ -274,6 +292,79 @@ app.delete('/model', (req, res) => {
   fs.unlinkSync(tarPath);
   back(res);
 })
+app.get('/paramModel', (req, res) => {
+  let paramModels = [];
+  let paramModelsFiles = fs.readdirSync(paramModelsPath);
+  for (let i = 0; i < paramModelsFiles.length; i++) {
+    let fileName = paramModelsFiles[i];
+    paramModels.push(JSON.parse(fs.readFileSync(path.join(paramModelsPath, fileName))));
+  }
+  back(res, paramModels);
+})
+app.post('/paramModel', (req, res) => {
+  let { modelName } = req.query;
+  // 参数校验
+  if (!modelName) return back(res, 400);
+  let tarPath = path.join(paramModelsPath, modelName + '.json');
+  // 文件夹是否存在校验
+  if (fs.existsSync(tarPath)) return back(res, 406);
+  req.body.createAt = Date.now();
+  fs.writeFileSync(tarPath, JSON.stringify(req.body));
+  back(res);
+})
+app.put('/paramModel', (req, res) => {
+  let { modelName } = req.query;
+  // 参数校验
+  if (!modelName) return back(res, 400);
+  let tarPath = path.join(paramModelsPath, modelName + '.json');
+  // 文件夹是否存在校验
+  if (!fs.existsSync(tarPath)) return back(res, 404);
+  req.body.updateAt = Date.now();
+  fs.writeFileSync(tarPath, JSON.stringify(req.body));
+  back(res);
+})
+app.delete('/paramModel', (req, res) => {
+  let { modelName } = req.query;
+  // 参数校验
+  if (!modelName) return back(res, 400);
+  let tarPath = path.join(paramModelsPath, modelName + '.json');
+  if (!fs.existsSync(tarPath)) return back(res, 404);
+  fs.unlinkSync(tarPath)
+  back(res);
+})
+app.post('/paramInfer', async (req, res) => {
+  const { modelName } = req.query;
+  const { base64s } = req.body;
+  const fileName = `${modelName}.json`;
+  const filePath = path.join(paramModelsPath, fileName);
+  if (!fs.existsSync(filePath)) return back(res, 404);
+  const item = JSON.parse(fs.readFileSync(filePath));
+  const tarJson = JSON.parse(item.dataFormat.replace('$text2', base64s[1]).replace('$text1', base64s[0]).replace('$text', base64s[0]));
+  let result = await axios.post(item.requestUrl, tarJson);
+  let { data } = result;
+  let finded = findTar(data, item.dataMap);
+  console.log(data, finded);
+  if (finded === undefined) return back(res, 4001);
+  back(res, finded);
+})
+
+function findTar(data, key) {
+  if (data instanceof Array) {
+    for (let i = 0; i < data.length; i++) {
+      let finded = findTar(data[i]);
+      if (finded !== undefined) {
+        return finded;
+      }
+    }
+  } else if (data instanceof Object) {
+    for (let i in data) {
+      if (key === i) {
+        return data[i];
+      }
+    }
+  }
+  return;
+}
 
 app.post('/infer', async (req, res) => {
   let { modelName } = req.query;
@@ -333,11 +424,17 @@ app.post('/infer', async (req, res) => {
     sumRankScore += finalRankScore[className];
   }
   console.log(sumRankScore)
+  let maxRankScore = 0;
+  let result = '';
   for (let className in model) {
     finalRankScore[className] /= sumRankScore;
+    if (finalRankScore[className] > maxRankScore) {
+      maxRankScore = finalRankScore[className];
+      result = className;
+    }
   }
 
-  back(res, finalRankScore);
+  back(res, finalRankScore, {result});
 })
 
 /**
