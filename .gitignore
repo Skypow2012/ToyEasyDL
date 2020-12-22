@@ -1,5 +1,6 @@
 images
 models
 infer
+needTrain
 py/__pycache__
 node_modules

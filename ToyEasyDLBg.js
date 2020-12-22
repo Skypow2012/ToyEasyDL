@@ -9,10 +9,12 @@ const dirPath = './';
 const imagesPath = path.join(dirPath, 'images');
 const modelsPath = path.join(dirPath, 'models');
 const inferPath = path.join(dirPath, 'infer');
+const needTrainPath = path.join(dirPath, 'needTrain');
 
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath);
 if (!fs.existsSync(modelsPath)) fs.mkdirSync(modelsPath);
 if (!fs.existsSync(inferPath)) fs.mkdirSync(inferPath);
+if (!fs.existsSync(needTrainPath)) fs.mkdirSync(needTrainPath);
 
 function getTar(vec) {
   let max = 0;
@@ -164,6 +166,33 @@ app.get('/class', (req, res) => {
     return decodeURIComponent(encodeClassName);
   })
   back(res, dirs);
+})
+
+app.post('/needTrain', async (req, res) => {
+  let {classNames} = req.body;
+  let {modelName,belong,modelType} = req.query;
+  if (!classNames) return back(res, 400);
+  if (!modelName) return back(res, 400);
+  let modelFileName = `${modelName}.json`;
+  if (fs.existsSync(path.join(needTrainPath, modelFileName))) return back(res, 406);
+  fs.writeFileSync(path.join(needTrainPath, modelFileName), JSON.stringify({
+    classNames,
+    modelName,
+    belong,
+    modelType,
+    createAt: Date.now()
+  }))
+  back(res);
+})
+app.get('/needTrain', async (req, res) => {
+  let needTrains = fs.readdirSync(needTrainPath);
+  let resInfo = []
+  for (let i = 0; i < needTrains.length; i++) {
+    let modelFileName = `${modelName}.json`;
+    let fileInfo = JSON.parse(fs.readFileSync(path.join(needTrains, modelFileName)));
+    resInfo.push(fileInfo)
+  }
+  back(res, resInfo);
 })
 
 app.post('/train', async (req, res) => {
