@@ -407,7 +407,7 @@ app.post('/paramInfer', async (req, res) => {
   if (item.requestMethod === 'JSON') headers['Content-Type'] = 'application/json';
   if (item.requestMethod === 'XML') headers['Content-Type'] = 'text/xml';
   let result = await axios({
-    url: item.requestUrl,
+    url: encodeURI(item.requestUrl),
     method: item.requestMethod === 'GET' ? 'GET': 'POST',
     headers,
     data: tarJson
