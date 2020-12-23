@@ -367,7 +367,7 @@ app.post('/matchInfer', async (req, res) => {
   for (let i = 0; i < img01Data.length; i++) {
     sum += 1;
     console.log(img01Data[i], img02Data[i])
-    if (Math.abs(img01Data[i]-img02Data[i]) < 30) {
+    if (Math.abs(img01Data[i]-img02Data[i]) < 60) {
       cnt += 1;
     }
   }
