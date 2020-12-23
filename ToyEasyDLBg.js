@@ -415,7 +415,7 @@ app.post('/paramInfer', async (req, res) => {
   let { data } = result;
   let finded = findTar(data, item.dataMap);
   console.log(data, finded);
-  if (finded === undefined) return back(res, 4001);
+  if (finded === undefined || finded instanceof Object) return back(res, 4001);
   back(res, finded);
 })
 
