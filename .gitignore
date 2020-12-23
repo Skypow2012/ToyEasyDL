@@ -1,6 +1,7 @@
 images
 models
 infer
+paramInfer
 needTrain
 param-models
 py/__pycache__

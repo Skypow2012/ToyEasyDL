@@ -2,8 +2,9 @@ const express = require('express');
 const { getVec } = require('./callPy.js');
 const fs = require('fs');
 const path = require('path');
-const { dir } = require('console');
 const axios = require('axios');
+const jimp = require("jimp");
+
 const app = new express();
 const port = 8000;
 const dirPath = './';
@@ -11,12 +12,14 @@ const imagesPath = path.join(dirPath, 'images');
 const modelsPath = path.join(dirPath, 'models');
 const paramModelsPath = path.join(dirPath, 'param-models');
 const inferPath = path.join(dirPath, 'infer');
+const paramInferPath = path.join(dirPath, 'paramInfer');
 const needTrainPath = path.join(dirPath, 'needTrain');
 
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath);
 if (!fs.existsSync(modelsPath)) fs.mkdirSync(modelsPath);
 if (!fs.existsSync(paramModelsPath)) fs.mkdirSync(paramModelsPath);
 if (!fs.existsSync(inferPath)) fs.mkdirSync(inferPath);
+if (!fs.existsSync(paramInferPath)) fs.mkdirSync(paramInferPath);
 if (!fs.existsSync(needTrainPath)) fs.mkdirSync(needTrainPath);
 
 function getTar(vec) {
@@ -79,7 +82,7 @@ function back(res, msg, others) {
         break;
       default:
     }
-  } else if (msg) {
+  } else if (msg != undefined) {
     body.info = msg;
   }
   if (others) {
@@ -298,6 +301,13 @@ app.delete('/model', (req, res) => {
   back(res);
 })
 app.get('/paramModel', (req, res) => {
+  const {modelName} = req.query;
+  if (modelName) {
+    const filePath = path.join(paramModelsPath, `${modelName}.json`);
+    console.log(filePath)
+    if (!fs.existsSync(filePath)) return back(res, 404);
+    return back(res, JSON.parse(fs.readFileSync(filePath).toString()));
+  }
   let paramModels = [];
   let paramModelsFiles = fs.readdirSync(paramModelsPath);
   for (let i = 0; i < paramModelsFiles.length; i++) {
@@ -337,13 +347,53 @@ app.delete('/paramModel', (req, res) => {
   fs.unlinkSync(tarPath)
   back(res);
 })
+app.post('/matchInfer', async (req, res) => {
+  const { base64s } = req.body;
+  if (!base64s || !(base64s instanceof Array) || base64s.length < 2) return back(res, 400);
+  const jimpImages = [];
+  for (let i = 0; i < base64s.length; i++) {
+    let imgName = `match_${Date.now()}_0${i+1}.jpg`;
+    let filePath = path.join(paramInferPath, imgName);
+    fs.writeFileSync(filePath, Buffer.from(base64s[i].replace(/^.*base64/,''), 'base64'));
+    const image = await jimp.read(filePath);
+    await image.resize(5,5);
+    jimpImages[i] = image;
+  }
+  let img01Data = jimpImages[0].bitmap.data;
+  let img02Data = jimpImages[1].bitmap.data;
+  let sum = 1;
+  let cnt = 1;
+  console.log(img01Data, img01Data.length);
+  for (let i = 0; i < img01Data.length; i++) {
+    sum += 1;
+    console.log(img01Data[i], img02Data[i])
+    if (Math.abs(img01Data[i]-img02Data[i]) < 30) {
+      cnt += 1;
+    }
+  }
+  let matchRate = cnt / sum;
+  console.log(matchRate)
+  let isMatch = matchRate > 0.8 ? true : false;
+  back(res, isMatch);
+})
 app.post('/paramInfer', async (req, res) => {
   const { modelName } = req.query;
   const { base64s } = req.body;
+  const jimpImages = [];
+  for (let i = 0; i < base64s.length; i++) {
+    let imgName = `${Date.now()}_0${i+1}.jpg`;
+    let filePath = path.join(paramInferPath, imgName);
+    fs.writeFileSync(filePath, Buffer.from(base64s[i].replace(/^.*base64/,''), 'base64'));
+    const image = await jimp.read(filePath);
+    await image.resize(5,5);
+    jimpImages[i] = image;
+  }
+  
   const fileName = `${modelName}.json`;
   const filePath = path.join(paramModelsPath, fileName);
   if (!fs.existsSync(filePath)) return back(res, 404);
   const item = JSON.parse(fs.readFileSync(filePath));
+  console.log(item);
   let tarJson = {};
   try {
     if (item.dataFormat) {
