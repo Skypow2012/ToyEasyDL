@@ -107,10 +107,12 @@ app.delete('/image', (req, res) => {
 
 app.get('/image', (req, res) => {
   let dir = fs.readdirSync('./images');
+  let { className } = req.query;
   let resInfo = [];
   for (let i = 0; i < dir.length; i++) {
     let tar = {};
     let encodeClassName = dir[i];
+    if (className && className !== decodeURIComponent(encodeClassName)) continue;
     tar.className = decodeURIComponent(encodeClassName);
     tar.images = fs.readdirSync('./images/' + encodeClassName);
     resInfo.push(tar);
