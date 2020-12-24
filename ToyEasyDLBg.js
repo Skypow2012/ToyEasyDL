@@ -120,8 +120,12 @@ app.get('/image', (req, res) => {
     if (className && className !== decodeURIComponent(encodeClassName)) continue;
     tar.className = decodeURIComponent(encodeClassName);
     tar.images = fs.readdirSync('./images/' + encodeClassName);
+    tar.createAt = Number(fs.statSync('./images/' + encodeClassName).ctime);
     resInfo.push(tar);
   }
+  resInfo = resInfo.sort((a, b)=>{
+    return b.createAt - a.createAt;
+  })
   back(res, resInfo);
 })
 
@@ -185,7 +189,16 @@ app.delete('/class', (req, res) => {
 app.get('/class', (req, res) => {
   let dirs = fs.readdirSync('./images');
   dirs = dirs.map((encodeClassName)=>{
-    return decodeURIComponent(encodeClassName);
+    return {
+      createAt: Number(fs.statSync(path.join(imagesPath, encodeClassName)).ctime),
+      className: decodeURIComponent(encodeClassName)
+    }
+  })
+  dirs = dirs.sort((a,b)=>{
+    return b.createAt - a.createAt;
+  })
+  dirs = dirs.map((tar)=>{
+    return tar.className;
   })
   back(res, dirs);
 })
@@ -317,6 +330,9 @@ app.get('/model', (req, res) => {
       })
     }
   }
+  resInfo = resInfo.sort((a, b)=>{
+    return b.createdAt - a.createdAt;
+  })
   let paramModels = [];
   let paramModelsFiles = fs.readdirSync(paramModelsPath);
   for (let i = 0; i < paramModelsFiles.length; i++) {
