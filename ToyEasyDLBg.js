@@ -399,6 +399,9 @@ app.delete('/paramModel', (req, res) => {
   back(res);
 })
 app.post('/matchInfer', async (req, res) => {
+  const { accRate, pixelRange } = req.query;
+  const _accRate = accRate ? Number(accRate) : 0.8;
+  const _pixelRange = pixelRange ? Number(pixelRange) : 60;
   const { base64s } = req.body;
   if (!base64s || !(base64s instanceof Array) || base64s.length < 2) return back(res, 400);
   const jimpImages = [];
@@ -418,13 +421,13 @@ app.post('/matchInfer', async (req, res) => {
   for (let i = 0; i < img01Data.length; i++) {
     sum += 1;
     console.log(img01Data[i], img02Data[i])
-    if (Math.abs(img01Data[i]-img02Data[i]) < 60) {
+    if (Math.abs(img01Data[i]-img02Data[i]) < _pixelRange) {
       cnt += 1;
     }
   }
   let matchRate = cnt / sum;
   console.log(matchRate)
-  let isMatch = matchRate > 0.8 ? true : false;
+  let isMatch = matchRate > _accRate ? true : false;
   back(res, isMatch);
 })
 app.post('/paramInfer', async (req, res) => {
