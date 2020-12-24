@@ -229,7 +229,8 @@ app.put('/imageInfo', (req, res) => {
     fs.unlinkSync(oldFilePath);
     // 转移配置文件
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    filePath = path.join(imagesInfoPath, `${imgInfo.className}_${newImgName}.json`);
+    filePath = path.join(imagesInfoPath, `${imgInfo.className}_${newFileName}.json`);
+    console.log(filePath);
   }
   fs.writeFileSync(filePath, JSON.stringify(imgInfo));
   const json = JSON.parse(fs.readFileSync(filePath).toString());
