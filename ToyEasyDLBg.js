@@ -9,6 +9,7 @@ const app = new express();
 const port = 8000;
 const dirPath = './';
 const imagesPath = path.join(dirPath, 'images');
+const imagesInfoPath = path.join(dirPath, 'imagesInfo');
 const modelsPath = path.join(dirPath, 'models');
 const paramModelsPath = path.join(dirPath, 'param-models');
 const inferPath = path.join(dirPath, 'infer');
@@ -16,6 +17,7 @@ const paramInferPath = path.join(dirPath, 'paramInfer');
 const needTrainPath = path.join(dirPath, 'needTrain');
 
 if (!fs.existsSync(imagesPath)) fs.mkdirSync(imagesPath);
+if (!fs.existsSync(imagesInfoPath)) fs.mkdirSync(imagesInfoPath);
 if (!fs.existsSync(modelsPath)) fs.mkdirSync(modelsPath);
 if (!fs.existsSync(paramModelsPath)) fs.mkdirSync(paramModelsPath);
 if (!fs.existsSync(inferPath)) fs.mkdirSync(inferPath);
@@ -186,6 +188,39 @@ app.get('/class', (req, res) => {
     return decodeURIComponent(encodeClassName);
   })
   back(res, dirs);
+})
+app.get('/imageInfo', (req, res) => {
+  const { className, imgName } = req.query;
+  if (!className || !imgName) return back(res, 400);
+  const filePath = path.join(imagesInfoPath, `${className}_${imgName}.json`);
+  if (!fs.existsSync(filePath)) return back(res, 404);
+  const json = JSON.parse(fs.readFileSync(filePath).toString());
+  back(res, json);
+})
+app.put('/imageInfo', (req, res) => {
+  const { className, imgName } = req.query;
+  const { imgInfo } = req.body;
+  let filePath = path.join(imagesInfoPath, `${className}_${imgName}.json`);
+  let needFetch = false; // 是否需要前端充值页面
+  if (imgInfo.className && className !== imgInfo.className) {
+    needFetch = true;
+    // 转移图片
+    const tarDirPath = path.join(imagesPath, encodeURIComponent(imgInfo.className));
+    console.log(tarDirPath)
+    if (!fs.existsSync(tarDirPath)) return back(res, 400);
+    const newImgName = Date.now() + '_' + (fs.readdirSync(tarDirPath).length + 1);
+    const newFileName = `${newImgName}.jpg`;
+    const newFilePath = path.join(tarDirPath, newFileName);
+    const oldFilePath = path.join(imagesPath, encodeURIComponent(className), `${imgName}`);
+    fs.writeFileSync(newFilePath, fs.readFileSync(oldFilePath));
+    fs.unlinkSync(oldFilePath);
+    // 转移配置文件
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    filePath = path.join(imagesInfoPath, `${imgInfo.className}_${newImgName}.json`);
+  }
+  fs.writeFileSync(filePath, JSON.stringify(imgInfo));
+  const json = JSON.parse(fs.readFileSync(filePath).toString());
+  back(res, json, {needFetch});
 })
 
 app.post('/needTrain', async (req, res) => {
