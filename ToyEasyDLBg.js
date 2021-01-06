@@ -1,5 +1,5 @@
 const express = require('express');
-const { getVec } = require('./callPy.js');
+const { getVec, faceDetect, faceDistance } = require('./callPy.js');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -562,6 +562,38 @@ app.post('/infer', async (req, res) => {
 
   back(res, finalRankScore, {result});
 })
+
+/**
+ * 检测人脸，返回数组[[上，右，下，左], [上，右，下，左]]
+ */
+app.post('/face/detect', async (req, res) => {
+  let { base64 } = req.body;
+  if (!base64) return back(res, 400); // 没发送待推导图片
+  let inferFileName = Date.now() + '.jpg';
+  let inferFilePath = path.join(paramInferPath, inferFileName);
+  fs.writeFileSync(inferFilePath, Buffer.from(base64.replace(/^.*base64/,''), 'base64'));
+  let result = await faceDetect(`infer/${inferFileName}`);
+  back(res, result);
+})
+
+/**
+ * 检测人脸，返回相似度，小数 0.09665
+ */
+app.post('/face/distance', async (req, res) => {
+  let { base64s } = req.body;
+  if (!base64s) return back(res, 400); // 没发送待推导图片
+  let inferFilePaths = [];
+  for (let i = 0; i < base64s.length; i++) {
+    const inferFileName = 'distance_' + Date.now() + '_' + ('00'+(i+1)).substr(-2) + '.jpg';
+    const inferFilePath = path.join(paramInferPath, inferFileName);
+    const base64 = base64s[i];
+    fs.writeFileSync(inferFilePath, Buffer.from(base64.replace(/^.*base64/,''), 'base64'));
+    inferFilePaths.push(inferFilePath);
+  }
+  let result = await faceDistance(inferFilePaths);
+  back(res, result);
+})
+
 
 /**
  * 计算分数，这里的数值越小代表越接近，所以越小越好

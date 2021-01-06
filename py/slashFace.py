@@ -5,6 +5,7 @@ import glob
 import numpy as np
 import argparse
 import json
+import sys
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--test', default='./test/f1.jpg', help="test img path")  #恢复训练时的模型路径
@@ -12,9 +13,9 @@ parser.add_argument('--method', default='detect', help="method [detect|distance]
 args = parser.parse_args()
 
 detector = dlib.get_frontal_face_detector()
-predictor_path = './model/slashFace/shape_predictor_68_face_landmarks.dat'
+predictor_path = sys.path[0] + '/model/slashFace/shape_predictor_68_face_landmarks.dat'
 predictor = dlib.shape_predictor(predictor_path)
-face_rec_model_path = './model/slashFace/dlib_face_recognition_resnet_model_v1.dat'
+face_rec_model_path = sys.path[0] + '/model/slashFace/dlib_face_recognition_resnet_model_v1.dat'
 facerec = dlib.face_recognition_model_v1(face_rec_model_path)
  
 def detect(path):
